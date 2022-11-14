@@ -1,4 +1,4 @@
-package lista1aeds3crud;
+package tp2aeds3;
 
 import java.io.RandomAccessFile;
 import java.util.ArrayList;

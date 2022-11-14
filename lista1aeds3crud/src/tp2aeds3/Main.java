@@ -1,4 +1,4 @@
-package lista1aeds3crud;
+package tp2aeds3;
 
 import java.io.RandomAccessFile;
 import java.io.IOException;
@@ -2520,6 +2520,56 @@ public class Main {
 	}
 	
 	
+	public static void opcaoImprimeArquivo(RandomAccessFile arq, long comeco) {
+		System.out.println("\nArquivo de contas:");
+		imprimeArquivo(arq, comeco);
+		System.out.println("\nAperte enter para continuar.");
+		sc.nextLine();
+	}
+	
+	
+	public static void comprimeLZW(RandomAccessFile arq, long comeco) {
+	  /*1. No início o dicionário contém todas as raízes possíveis e I é vazio;
+		2. c <= próximo caractere da sequência de entrada;
+		3. A string I+c existe no dicionário?
+			a. se sim,
+				i. I <= I+c;
+			b. se não,
+				i. coloque a palavra código correspondente a I na sequência codificada;
+				ii. adicione a string I+c ao dicionário;
+				iii. I <= c;
+		4. Existem mais caracteres na sequência de entrada ?
+			a. se sim,
+				i. volte ao passo 2;
+			b. se não,
+				ii. coloque a palavra código correspondente a I na sequência codificada;
+				iii. FIM.*/
+		
+		char charAtual;
+		ArrayList<String> dicionario = new ArrayList<String>();
+		String itemAtual;
+		
+		try {
+			arq.seek(comeco);
+			// inicia o dicionario
+			for(int i=0; i<256; i++) {
+				itemAtual = "" + i;
+				dicionario.add(itemAtual);
+			}
+			
+			String strI = "";
+			while(arq.getFilePointer() < arq.length()-1) {
+				charAtual = (char) arq.readByte();
+				if(dicionario.contains(strI + charAtual)) {
+					System.out.println("contem " + strI + charAtual);
+				}
+			}
+		} catch (IOException e) {
+			System.out.println(e.getMessage());
+		}
+	}
+	
+	
 	public static void main(String[] args) {
 	    long comeco;
 	    boolean sair = false;
@@ -2546,6 +2596,8 @@ public class Main {
 	    		System.out.println("7) Criar arquivo de índice hash");
 	    		System.out.println("8) Buscar uma conta via arquivo de índice hash");
 	    		System.out.println("9) Buscar IDs por lista invertida");
+	    		System.out.println("10) Imprimir o arquivo de dados");
+	    		System.out.println("11) Comprimir o arquivo de dados usando LZW");
 	    		System.out.println("S) Sair");
 	    		opcao = sc.nextLine();
 	    		switch(opcao) { // trata as opcoes
@@ -2575,6 +2627,12 @@ public class Main {
 	    				break;
 	    			case "9":
 	    				buscaListaInvertida();
+	    				break;
+	    			case "10":
+	    				opcaoImprimeArquivo(arq, comeco);
+	    				break;
+	    			case "11":
+	    				comprimeLZW(arq, comeco);
 	    				break;
 	    			case "s":
 	    				sair = true;

@@ -1,4 +1,4 @@
-package lista1aeds3crud;
+package tp2aeds3;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
