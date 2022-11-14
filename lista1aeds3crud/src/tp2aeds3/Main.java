@@ -2545,23 +2545,54 @@ public class Main {
 				ii. coloque a palavra código correspondente a I na sequência codificada;
 				iii. FIM.*/
 		
-		char charAtual;
-		ArrayList<String> dicionario = new ArrayList<String>();
-		String itemAtual;
+		byte byteAtual;
+		ArrayList<byte[]> dicionario = new ArrayList<byte[]>();
+		byte[] itemAtual;
+		byte[] I;
 		
 		try {
 			arq.seek(comeco);
 			// inicia o dicionario
 			for(int i=0; i<256; i++) {
-				itemAtual = "" + i;
+				itemAtual = new byte[1];
+				itemAtual[0] = (byte) i;
 				dicionario.add(itemAtual);
 			}
 			
-			String strI = "";
+			byte[] dadosAtuais;
+			//1. No início o dicionário contém todas as raízes possíveis e I é vazio;
+			I = new byte[0];
 			while(arq.getFilePointer() < arq.length()-1) {
-				charAtual = (char) arq.readByte();
-				if(dicionario.contains(strI + charAtual)) {
-					System.out.println("contem " + strI + charAtual);
+				//2. c <= próximo caractere da sequência de entrada;
+				byteAtual = arq.readByte();
+				//3. A string I+c existe no dicionário?
+				itemAtual = new byte[I.length + 1];
+				for(int i=0; i<I.length; i++) {
+					itemAtual[i] = I[i];
+				}
+				itemAtual[I.length] = byteAtual;
+				boolean contem = false;
+				int posEncontrada = -1;
+				int menor = -1;
+				for(int i=0; i<dicionario.size(); i++) {
+					if(dicionario.get(i).length == itemAtual.length) {
+						boolean encontrouTodos = true;
+						for (int j=0; j<itemAtual.length; j++) {
+							itemAtual[j] = itemAtual[j];
+							dicionario.get(i)[j] = dicionario.get(i)[j];
+							if(itemAtual[j] != dicionario.get(i)[j]) {
+								encontrouTodos = false;
+							}
+						}
+						if(encontrouTodos) {
+							contem = true;
+							posEncontrada = i;
+						}
+					}
+				}
+				//a. se sim,
+				if(contem) {
+					System.out.println("contem " + itemAtual.toString() + " pos " + posEncontrada);
 				}
 			}
 		} catch (IOException e) {
