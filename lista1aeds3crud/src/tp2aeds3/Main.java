@@ -2549,9 +2549,11 @@ public class Main {
 		ArrayList<byte[]> dicionario = new ArrayList<byte[]>();
 		byte[] itemAtual;
 		byte[] I;
+		ArrayList<Byte> sequenciaCodificada = new ArrayList<Byte>();
 		
 		try {
 			arq.seek(comeco);
+			
 			// inicia o dicionario
 			for(int i=0; i<256; i++) {
 				itemAtual = new byte[1];
@@ -2559,12 +2561,15 @@ public class Main {
 				dicionario.add(itemAtual);
 			}
 			
-			byte[] dadosAtuais;
 			//1. No início o dicionário contém todas as raízes possíveis e I é vazio;
 			I = new byte[0];
-			while(arq.getFilePointer() < arq.length()-1) {
+			boolean acabou = false;
+			boolean primeiraMetade = true;
+			while(!acabou) {
+				
 				//2. c <= próximo caractere da sequência de entrada;
 				byteAtual = arq.readByte();
+				
 				//3. A string I+c existe no dicionário?
 				itemAtual = new byte[I.length + 1];
 				for(int i=0; i<I.length; i++) {
@@ -2572,29 +2577,281 @@ public class Main {
 				}
 				itemAtual[I.length] = byteAtual;
 				boolean contem = false;
-				int posEncontrada = -1;
-				int menor = -1;
 				for(int i=0; i<dicionario.size(); i++) {
 					if(dicionario.get(i).length == itemAtual.length) {
 						boolean encontrouTodos = true;
 						for (int j=0; j<itemAtual.length; j++) {
-							itemAtual[j] = itemAtual[j];
-							dicionario.get(i)[j] = dicionario.get(i)[j];
 							if(itemAtual[j] != dicionario.get(i)[j]) {
 								encontrouTodos = false;
 							}
 						}
 						if(encontrouTodos) {
 							contem = true;
-							posEncontrada = i;
 						}
 					}
 				}
+				
 				//a. se sim,
 				if(contem) {
-					System.out.println("contem " + itemAtual.toString() + " pos " + posEncontrada);
+					
+					//i. I <= I+c;
+					I = new byte[itemAtual.length];
+					for(int i=0; i<itemAtual.length; i++) {
+						I[i] = itemAtual[i];
+					}
+				} 
+				
+				//b. se não,
+				else {
+					
+					//i. coloque a palavra código correspondente a I na sequência codificada;
+					int posicaoEncontrada = -1;
+					for(int i=0; i<dicionario.size(); i++) {
+						if(dicionario.get(i).length == I.length) {
+							boolean encontrouTodos = true;
+							for (int j=0; j<I.length; j++) {
+								if(I[j] != dicionario.get(i)[j]) {
+									encontrouTodos = false;
+								}
+							}
+							if(encontrouTodos) {
+								posicaoEncontrada = i;
+							}
+						}
+					}
+					if(primeiraMetade) { // se a sequencia codificada estiver em uma posicao em que eu devo inserir bytes na primeira ordem, entao adiciona os dois bytes da posicao de I. Senao, usa os ultimos 4 bits do ultimo byte da sequencia e adiciona o segundo byte.
+						byte byte1 = (byte) ((posicaoEncontrada >> 4) & 0xFF);
+						byte byte2 = (byte) ((posicaoEncontrada << 4) & 0xF0);
+						sequenciaCodificada.add(byte1);
+						sequenciaCodificada.add(byte2);
+						primeiraMetade = false; 
+					} else {
+						byte byte1 = (byte) (((posicaoEncontrada >> 8) & 0xF) | sequenciaCodificada.get(sequenciaCodificada.size() - 1));
+						byte byte2 = (byte) (posicaoEncontrada & 0xFF);
+						sequenciaCodificada.remove(sequenciaCodificada.size() - 1);
+						sequenciaCodificada.add(byte1);
+						sequenciaCodificada.add(byte2);
+						primeiraMetade = true;
+					}
+					
+					//ii. adicione a string I+c ao dicionário;
+					dicionario.add(itemAtual);
+					
+					//iii. I <= c;
+					I = new byte[1];
+					I[0] = byteAtual;
+				}
+				
+				//4. Existem mais caracteres na sequência de entrada ?
+					//a. se sim,
+						//i. volte ao passo 2;
+				//b. se não,
+				if(arq.getFilePointer() == arq.length() - 1) {
+					
+					//ii. coloque a palavra código correspondente a I na sequência codificada;
+					int modAtual = I[0];
+					ArrayList<Byte> sequenciaAtual = new ArrayList<Byte>();
+					for(int i=0; i<12; i++) {
+						sequenciaAtual.add((byte) (modAtual & 1));
+						modAtual = modAtual >> 1;
+					}
+										
+					//iii. FIM.
+					acabou = true;
+					
+					//salva no arquivo
+					RandomAccessFile arqComprimido = new RandomAccessFile("dados/contasLZW.db", "rw");
+					arqComprimido.seek(comeco);
+					arqComprimido.setLength(0);
+					for(Byte p : sequenciaCodificada) {
+						arqComprimido.writeByte(p);
+					}
+					System.out.println("\nArquivo inicial: " + arq.length() + " bytes");
+					System.out.println("Arquivo final: " + arqComprimido.length() + " bytes");
+					System.out.println("Compressão: " + (((float) arqComprimido.length() / arq.length()) * 100) + "% do tamanho");
+					System.out.println("\nAperte enter para continuar.");
+					sc.nextLine();
+					arqComprimido.close();
 				}
 			}
+		} catch (IOException e) {
+			System.out.println(e.getMessage());
+		}
+	}
+	
+	
+	public static void descomprimeLZW(RandomAccessFile arq, long comeco) {
+	  /*1. No início o dicionário contém todas as raízes possíveis;
+		2. cW <= primeira palavra código na sequência codificada (sempre é uma raiz);
+		3. Coloque a string(cW) na sequência de saída;
+		4. pW <= cW;
+		5. cW <= próxima palavra código da sequência codificada;
+		6. A string(cW) existe no dicionário ?
+			a. se sim,
+				i. coloque a string(cW) na sequência de saída;
+				ii. P <= string(pW);
+				iii. C <= primeiro caracter da string(cW);
+				iv. adicione a string P+C ao dicionário;
+			b. se não,
+				i. P <= string(pW);
+				ii. C <= primeiro caracter da string(pW);
+				iii. coloque a string P+C na sequência de saída e adicione-a ao dicionário;
+		7. Existem mais palavras código na sequência codificada ?
+			a. se sim,
+				i. volte ao passo 4;
+			b. se não,
+				i. FIM.*/
+		
+
+		try {
+			// lê o arquivo codificado
+			RandomAccessFile arqComprimido = new RandomAccessFile("dados/contasLZW.db", "rw");
+			if(arqComprimido.length() == 0) {
+				System.out.println("\nArquivo vazio.\n\nAperte enter para continuar.\n");
+				sc.nextLine();
+				arqComprimido.close();
+				return;
+			}
+			
+			ArrayList<Integer> sequenciaCodificada = new ArrayList<Integer>();
+			boolean primeiraMetade = true;
+			long pos0 = arqComprimido.getFilePointer();
+			for(int i=0; arqComprimido.getFilePointer() < arqComprimido.length()-1; i++) {
+				if(primeiraMetade) {
+					int aux = arqComprimido.readUnsignedByte();
+					pos0 = arqComprimido.getFilePointer();
+					aux = aux << 4;
+					aux = aux | (((int) arqComprimido.readUnsignedByte() >> 4) & 15);
+					sequenciaCodificada.add(aux);
+					primeiraMetade = false;
+					arqComprimido.seek(pos0);
+				} else {
+					int aux;
+					aux = arqComprimido.readUnsignedByte() & 15;
+					aux = aux << 8;
+					int x = arqComprimido.readUnsignedByte();
+					aux = aux | x ;
+					sequenciaCodificada.add(aux);
+					primeiraMetade = true;
+				}
+			}
+			
+			// 1. No início o dicionário contém todas as raízes possíveis;
+			// inicia o dicionario
+			ArrayList<byte[]> dicionario = new ArrayList<byte[]>();
+			ArrayList<Byte> sequenciaSaida = new ArrayList<Byte>();
+			int cW, pW;
+			byte[] stringC, stringP;
+			byte[] itemAtual;
+			byte c;
+			byte[] p;
+			for(int i=0; i<256; i++) {
+				itemAtual = new byte[1];
+				itemAtual[0] = (byte) i;
+				dicionario.add(itemAtual);
+			}
+			
+			// 2. cW <= primeira palavra código na sequência codificada (sempre é uma raiz);
+			cW = sequenciaCodificada.get(0);
+			
+			// 3. Coloque a string(cW) na sequência de saída;
+			stringC = dicionario.get(cW);
+			for(int i=0; i<stringC.length; i++) {
+				sequenciaSaida.add(stringC[i]);
+			}
+			
+			// 4. pW <= cW;
+			boolean acabou = false;
+			if(sequenciaCodificada.size() == 1) {
+				acabou = true;
+			}
+			int indiceSeqCod = 1;
+			while(!acabou) {
+				pW = cW;
+				
+				// 5. cW <= próxima palavra código da sequência codificada;
+				cW = sequenciaCodificada.get(indiceSeqCod);
+				indiceSeqCod++;
+				
+				// 6. A string(cW) existe no dicionário ?
+				boolean existe = false;
+				if(cW < dicionario.size()) {
+					existe = true;
+					stringC = dicionario.get(cW);
+				} else {
+					existe = false;
+				}
+				
+				// a. se sim,
+				if(existe) {
+					
+					// i. coloque a string(cW) na sequência de saída;
+					for(int i=0; i<stringC.length; i++) {
+						sequenciaSaida.add(stringC[i]);
+					}
+					
+					// ii. P <= string(pW);
+					stringP = dicionario.get(pW);
+					p = stringP;
+					
+					// iii. C <= primeiro caracter da string(cW);
+					c = stringC[0];
+					
+					// iv. adicione a string P+C ao dicionário;
+					byte[] stringParaAdicionar = new byte[p.length + 1];
+					for(int i=0; i<p.length; i++) {
+						stringParaAdicionar[i] = p[i];
+					}
+					stringParaAdicionar[p.length] = c;
+					dicionario.add(stringParaAdicionar);
+				}
+				
+				// b. se não,
+				else {
+					
+					// i. P <= string(pW);
+					stringP = dicionario.get(pW);
+					p = stringP;
+					
+					// ii. C <= primeiro caracter da string(pW);
+					c = stringC[0];
+					
+					// iii. coloque a string P+C na sequência de saída e adicione-a ao dicionário;
+					byte[] stringParaAdicionar = new byte[p.length + 1];
+					for(int i=0; i<p.length; i++) {
+						stringParaAdicionar[i] = p[i];
+					}
+					stringParaAdicionar[p.length] = c;
+					dicionario.add(stringParaAdicionar);
+					for(int i=0; i<stringParaAdicionar.length; i++) {
+						sequenciaSaida.add(stringParaAdicionar[i]);
+					}
+				}
+				
+				// 7. Existem mais palavras código na sequência codificada ?
+					// a. se sim,
+						// i. volte ao passo 4;
+					// b. se não,
+						// i. FIM.
+				if(indiceSeqCod == sequenciaCodificada.size()) {
+					acabou = true;
+				}
+			}
+			
+			// salva os dados no arquivo
+			arq.seek(comeco);
+			arq.setLength(0);
+			for(Byte byteAtual : sequenciaSaida) {
+				arq.writeByte(byteAtual);
+			}
+			
+			System.out.println("\nArquivo decodificado:");
+			imprimeArquivo(arq, comeco);
+			System.out.println("\nAperte enter para continuar.");
+			sc.nextLine();
+			
+			
+			arqComprimido.close();
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
 		}
@@ -2629,6 +2886,7 @@ public class Main {
 	    		System.out.println("9) Buscar IDs por lista invertida");
 	    		System.out.println("10) Imprimir o arquivo de dados");
 	    		System.out.println("11) Comprimir o arquivo de dados usando LZW");
+	    		System.out.println("12) Decodificar o arquivo de dados criado com LZW");
 	    		System.out.println("S) Sair");
 	    		opcao = sc.nextLine();
 	    		switch(opcao) { // trata as opcoes
@@ -2664,6 +2922,9 @@ public class Main {
 	    				break;
 	    			case "11":
 	    				comprimeLZW(arq, comeco);
+	    				break;
+	    			case "12":
+	    				descomprimeLZW(arq, comeco);
 	    				break;
 	    			case "s":
 	    				sair = true;
