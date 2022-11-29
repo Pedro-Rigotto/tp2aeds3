@@ -7,7 +7,7 @@ import java.lang.Math;
 
 /**
  * 
- * @author Pedro Corrêa Rigotto - Matrícula 762281, Igor Franco Corrêa - Matrícula 750077 
+ * @author Pedro Corrêa Rigotto - Matrícula 762281, Henrique Padua França Lommes -  Matrícula 733377
  *
  */
 
@@ -2858,6 +2858,26 @@ public class Main {
 	}
 	
 	
+	public static void opcaoHuffman(RandomAccessFile arq, long comeco) {
+		try {
+			HuffmanC.handleNewText(sc,arq);
+			RandomAccessFile arqComprimido = new RandomAccessFile("dados/contasHuffman.db", "rw");
+			System.out.println("\nArquivo codificado com sucesso.");
+			System.out.println("\nArquivo inicial: " + arq.length() + " bytes");
+			System.out.println("Arquivo final: " + arqComprimido.length() + " bytes");
+			System.out.println("Compressão: " + (((float) arqComprimido.length() / arq.length()) * 100) + "% do tamanho");
+			
+			System.out.println("\nArquivo decodificado:");
+			imprimeArquivo(arq, comeco);
+			System.out.println("\nAperte enter para continuar.");
+			sc.nextLine();
+			arqComprimido.close();
+		} catch (IOException e) {
+			System.out.println(e.getMessage());
+		}
+	}
+	
+	
 	public static void main(String[] args) {
 	    long comeco;
 	    boolean sair = false;
@@ -2887,6 +2907,7 @@ public class Main {
 	    		System.out.println("10) Imprimir o arquivo de dados");
 	    		System.out.println("11) Comprimir o arquivo de dados usando LZW");
 	    		System.out.println("12) Decodificar o arquivo de dados criado com LZW");
+	    		System.out.println("13) Codificar e decodificar o arquivo de dados usando Huffman");
 	    		System.out.println("S) Sair");
 	    		opcao = sc.nextLine();
 	    		switch(opcao) { // trata as opcoes
@@ -2925,6 +2946,9 @@ public class Main {
 	    				break;
 	    			case "12":
 	    				descomprimeLZW(arq, comeco);
+	    				break;
+	    			case "13":
+	    				opcaoHuffman(arq, comeco);
 	    				break;
 	    			case "s":
 	    				sair = true;
